@@ -126,7 +126,7 @@ public class ImageProcessor
         _ocr.PageSegMode = PageSegMode.SingleLine;
         _ocr.SetImage(image);
         _ocr.Recognize();
-        var text = _ocr.GetUTF8Text();
+        var text = _ocr.GetUTF8Text().Trim();
         if (text.Contains('2'))
             return SpecialField.DoubleWord;
         if (text.Contains('3'))

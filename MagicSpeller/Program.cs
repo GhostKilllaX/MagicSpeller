@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Drawing;
 
 var imageProcessor = new ImageProcessor();
+var words = new WordList("./words.txt");
 
 Console.WriteLine("MagicSpeller");
 while (true)
@@ -33,10 +34,12 @@ while (true)
         Console.WriteLine();
     }
 
-    var bestMatch = game.FindBestWord(WordList.WordTree);
+    var bestMatch = game.FindBestWord(words.WordTree);
     Console.WriteLine($"Best word: {bestMatch}");
-    bestMatch = game.FindBestWordWithSwaps(WordList.WordTree, 1);
+    bestMatch = game.FindBestWordWithSwaps(words, 1);
     Console.WriteLine($"Best word 1 swap: {bestMatch}");
+    bestMatch = game.FindBestWordWithSwaps(words, 2);
+    Console.WriteLine($"Best word 2 swap: {bestMatch}");
     Console.WriteLine($"Elapsed time: {watch.Elapsed:g}");
     Console.WriteLine();
 }

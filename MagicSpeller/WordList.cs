@@ -58,14 +58,17 @@ public record WordTree(Dictionary<char, WordNode> Subs)
     }
 }
 
-public static class WordList
+public class WordList
 {
-    public static readonly WordTree WordTree = new(new());
+    public WordTree WordTree { get; }
 
-    static WordList()
+    public IReadOnlyList<string> Words { get; }
+
+    public WordList(string path)
     {
-        var words = File.ReadAllLines("./words.txt");
-        foreach (var word in words)
+        Words = File.ReadAllLines(path);
+        WordTree = new(new());
+        foreach (var word in Words)
             WordTree.Insert(word);
     }
 }
