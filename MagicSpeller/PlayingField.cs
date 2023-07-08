@@ -15,6 +15,9 @@ public record Field(char Letter, SpecialField Special);
 
 public record PlayingField(Field[,] Fields)
 {
+    private readonly int _rows = Fields.GetLength(0);
+    private readonly int _cols = Fields.GetLength(1);
+
     private SearchResult? FindBestWordStep(WordTree words, SearchResult current)
     {
         var max = words.Exists(current.Word) ? current : null;
@@ -22,7 +25,7 @@ public record PlayingField(Field[,] Fields)
         for (var xOffset = -1; xOffset <= 1; xOffset++)
         {
             var newPos = current.Path.Last() + new Size(xOffset, yOffset);
-            if (newPos.Y < 0 || newPos.Y >= 5 || newPos.X < 0 || newPos.X >= 5)
+            if (newPos.Y < 0 || newPos.Y >= _rows || newPos.X < 0 || newPos.X >= _cols)
                 continue;
             if (current.Path.Contains(newPos))
                 continue;
@@ -41,8 +44,8 @@ public record PlayingField(Field[,] Fields)
     public SearchResult? FindBestWord(WordTree words)
     {
         SearchResult? max = null;
-        for (var y = 0; y < 5; y++)
-        for (var x = 0; x < 5; x++)
+        for (var y = 0; y < _rows; y++)
+        for (var x = 0; x < _cols; x++)
         {
             var newField = Fields[y, x];
             var result = FindBestWordStep(words, new(new() { newField }, new() { new(x, y) }));
@@ -62,8 +65,8 @@ public record PlayingField(Field[,] Fields)
 
         SearchResultWithSwaps? max = null;
         var semaphore = new SemaphoreSlim(1);
-        for (var y = 0; y < 5; y++)
-        for (var x = 0; x < 5; x++)
+        for (var y = 0; y < _rows; y++)
+        for (var x = 0; x < _cols; x++)
             //for (var letter = 'A'; letter <= 'Z'; letter++)
             Parallel.For<SearchResultWithSwaps?>(0,
                 27,
@@ -105,7 +108,7 @@ public record PlayingField(Field[,] Fields)
         for (var xOffset = -1; xOffset <= 1; xOffset++)
         {
             var newPos = current.Path.Last() + new Size(xOffset, yOffset);
-            if (newPos.Y < 0 || newPos.Y >= 5 || newPos.X < 0 || newPos.X >= 5)
+            if (newPos.Y < 0 || newPos.Y >= _rows || newPos.X < 0 || newPos.X >= _cols)
                 continue;
             if (current.Path.Contains(newPos))
                 continue;
@@ -138,8 +141,8 @@ public record PlayingField(Field[,] Fields)
             () => null,
             (word, _, localMax) =>
             {
-                for (var y = 0; y < 5; y++)
-                for (var x = 0; x < 5; x++)
+                for (var y = 0; y < _rows; y++)
+                for (var x = 0; x < _cols; x++)
                 {
                     var newSwaps = swaps;
                     var newField = Fields[y, x] with { Letter = word[0] };

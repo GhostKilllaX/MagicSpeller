@@ -34,6 +34,8 @@ public class ImageProcessor
     private readonly Tesseract _ocr =
         new("./tessdata", "eng", OcrEngineMode.Default, "23ABCDEFGHIJKLMNOPQRSTUVWXYZ");
 
+    public ImageProcessor() => _ocr.SetVariable("debug_file", "NUL");
+
     ~ImageProcessor() => _ocr.Dispose();
 
     private char? RecognizeChar(UMat image)
@@ -98,7 +100,7 @@ public class ImageProcessor
     {
         const double cannyThreshold = 180.0;
         const double circleAccumulatorThreshold = 60;
-        var circles = CvInvoke.HoughCircles(image, HoughModes.Gradient, 1.5, 20.0, cannyThreshold, circleAccumulatorThreshold, 0, 50)
+        var circles = CvInvoke.HoughCircles(image, HoughModes.Gradient, 1.5, 20.0, cannyThreshold, circleAccumulatorThreshold, 10, 50)
             .Where(circle =>
             {
                 if (circle.Center.X is < 40 or > 960) // Ignore corner circles
