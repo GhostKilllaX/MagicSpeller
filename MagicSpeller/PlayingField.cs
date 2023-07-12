@@ -11,7 +11,7 @@ public enum SpecialField
     TripleWord
 }
 
-public record Field(char Letter, SpecialField Special);
+public readonly record struct Field(char Letter, SpecialField Special);
 
 public record PlayingField(Field[,] Fields)
 {
@@ -24,7 +24,7 @@ public record PlayingField(Field[,] Fields)
         for (var yOffset = -1; yOffset <= 1; yOffset++)
         for (var xOffset = -1; xOffset <= 1; xOffset++)
         {
-            var newPos = current.Path.Last() + new Size(xOffset, yOffset);
+            var newPos = current.Path[^1] + new Size(xOffset, yOffset);
             if (newPos.Y < 0 || newPos.Y >= _rows || newPos.X < 0 || newPos.X >= _cols)
                 continue;
             if (current.Path.Contains(newPos))
@@ -96,7 +96,7 @@ public record PlayingField(Field[,] Fields)
 
     private SearchResultWithSwaps? FindWordStep(string word, int swaps, SearchResultWithSwaps current)
     {
-        if (word == current.Word)
+        if (word.Length == current.Fields.Count && word == current.Word)
             return current;
 
         SearchResultWithSwaps? max = null;
@@ -107,7 +107,7 @@ public record PlayingField(Field[,] Fields)
         for (var yOffset = -1; yOffset <= 1; yOffset++)
         for (var xOffset = -1; xOffset <= 1; xOffset++)
         {
-            var newPos = current.Path.Last() + new Size(xOffset, yOffset);
+            var newPos = current.Path[^1] + new Size(xOffset, yOffset);
             if (newPos.Y < 0 || newPos.Y >= _rows || newPos.X < 0 || newPos.X >= _cols)
                 continue;
             if (current.Path.Contains(newPos))
@@ -117,14 +117,14 @@ public record PlayingField(Field[,] Fields)
 
             var newSwaps = swaps;
             var newField = Fields[newPos.Y, newPos.X] with { Letter = seachFor };
-            var newSwapList = new List<SwapInfo>(current.Swaps);
+            var newSwapList = current.Swaps;
             if (Fields[newPos.Y, newPos.X].Letter != seachFor)
             {
-                newSwapList.Add(new(new(newPos.X, newPos.Y), Fields[newPos.Y, newPos.X].Letter, seachFor));
+                newSwapList = new(current.Swaps) { new(new(newPos.X, newPos.Y), Fields[newPos.Y, newPos.X].Letter, seachFor) };
                 newSwaps--;
             }
 
-            var next = new SearchResultWithSwaps(new(current.Fields) { newField }, new(current.Path) { new(newPos.X, newPos.Y) }, new(newSwapList));
+            var next = new SearchResultWithSwaps(new(current.Fields) { newField }, new(current.Path) { new(newPos.X, newPos.Y) }, newSwapList);
             var result = FindWordStep(word, newSwaps, next);
             if (result?.Points > (max?.Points ?? 0))
                 max = result;
@@ -154,7 +154,7 @@ public record PlayingField(Field[,] Fields)
                         newSwapList.Add(new(new(x, y), Fields[y, x].Letter, word[0]));
                         newSwaps--;
                     }
-                    var current = new SearchResultWithSwaps(new() { newField }, new() { new(x, y) }, new(newSwapList));
+                    var current = new SearchResultWithSwaps(new() { newField }, new() { new(x, y) }, newSwapList);
                     var result = FindWordStep(word, newSwaps, current);
                     if (result?.Points > (localMax?.Points ?? 0))
                         localMax = result;

@@ -54,7 +54,7 @@ public record SearchResult
     public override string ToString() => $"{Word} {Points}P {string.Join(", ", Path.Select(point => new Point(point.X + 1, point.Y + 1)))}";
 }
 
-public record SwapInfo(Point Position, char OldChar, char NewChar);
+public readonly record struct SwapInfo(Point Position, char OldChar, char NewChar);
 
 public record SearchResultWithSwaps(List<Field> Fields, List<Point> Path, List<SwapInfo> Swaps) : SearchResult(Fields, Path)
 {
