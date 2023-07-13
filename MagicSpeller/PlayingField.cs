@@ -63,35 +63,30 @@ public record PlayingField(Field[,] Fields)
             return result is null ? null : new(result.Fields, result.Path, new());
         }
 
-        SearchResultWithSwaps? max = null;
-        var semaphore = new SemaphoreSlim(1);
-        for (var y = 0; y < _rows; y++)
-        for (var x = 0; x < _cols; x++)
-            //for (var letter = 'A'; letter <= 'Z'; letter++)
-            Parallel.For<SearchResultWithSwaps?>(0,
-                27,
-                () => null,
-                (i, _, localMax) =>
-                {
-                    var letter = (char)('A' + i);
-                    if (letter == Fields[y, x].Letter)
-                        return localMax;
-                    var newField = (Field[,])Fields.Clone();
-                    newField[y, x] = newField[y, x] with { Letter = letter };
-                    var newPlayingField = new PlayingField(newField);
-                    var result = newPlayingField.FindBestWordLoopApproach(words, swaps - 1);
-                    if (result?.Points > (localMax?.Points ?? 0))
-                        localMax = result with { Swaps = new(result.Swaps) { new(new(x, y), Fields[y, x].Letter, letter) } };
-                    return localMax;
-                },
-                localMax =>
-                {
-                    semaphore.Wait();
-                    if (localMax?.Points > (max?.Points ?? 0))
-                        max = localMax;
-                    semaphore.Release();
-                });
-        return max;
+        return GetCombinations()
+            .AsParallel()
+            .Select(tuple =>
+            {
+                var (x, y, letter) = tuple;
+                var newField = (Field[,])Fields.Clone();
+                newField[y, x] = newField[y, x] with { Letter = letter };
+                var newPlayingField = new PlayingField(newField);
+                var result = newPlayingField.FindBestWordLoopApproach(words, swaps - 1);
+                if (result is null)
+                    return null;
+                if (letter == Fields[y, x].Letter)
+                    return result;
+                return result with { Swaps = new(result.Swaps) { new(new(x, y), Fields[y, x].Letter, letter) } };
+            })
+            .MaxBy(s => s?.Points);
+
+        IEnumerable<(int x, int y, char letter)> GetCombinations()
+        {
+            for (var y = 0; y < _rows; y++)
+            for (var x = 0; x < _cols; x++)
+            for (var letter = 'A'; letter <= 'Z'; letter++)
+                yield return (x, y, letter);
+        }
     }
 
     private SearchResultWithSwaps? FindWordStep(string word, int swaps, SearchResultWithSwaps current)
@@ -134,41 +129,33 @@ public record PlayingField(Field[,] Fields)
 
     private SearchResultWithSwaps? FindBestWordListApproach(IEnumerable<string> words, int swaps)
     {
-        SearchResultWithSwaps? max = null;
-        var semaphore = new SemaphoreSlim(1);
-        //foreach (var word in words)
-        Parallel.ForEach<string, SearchResultWithSwaps?>(words,
-            () => null,
-            (word, _, localMax) =>
+        return GetCombinations()
+            .AsParallel()
+            .Select(tuple =>
             {
+                var (x, y, word) = tuple;
+                var newSwaps = swaps;
+                var newField = Fields[y, x] with { Letter = word[0] };
+                var newSwapList = new List<SwapInfo>();
+                if (Fields[y, x].Letter != word[0])
+                {
+                    if (swaps == 0)
+                        return null;
+                    newSwapList.Add(new(new(x, y), Fields[y, x].Letter, word[0]));
+                    newSwaps--;
+                }
+                var current = new SearchResultWithSwaps(new() { newField }, new() { new(x, y) }, newSwapList);
+                return FindWordStep(word, newSwaps, current);
+            })
+            .MaxBy(s => s?.Points);
+
+        IEnumerable<(int x, int y, string word)> GetCombinations()
+        {
+            foreach (var word in words)
                 for (var y = 0; y < _rows; y++)
                 for (var x = 0; x < _cols; x++)
-                {
-                    var newSwaps = swaps;
-                    var newField = Fields[y, x] with { Letter = word[0] };
-                    var newSwapList = new List<SwapInfo>();
-                    if (Fields[y, x].Letter != word[0])
-                    {
-                        if (swaps == 0)
-                            continue;
-                        newSwapList.Add(new(new(x, y), Fields[y, x].Letter, word[0]));
-                        newSwaps--;
-                    }
-                    var current = new SearchResultWithSwaps(new() { newField }, new() { new(x, y) }, newSwapList);
-                    var result = FindWordStep(word, newSwaps, current);
-                    if (result?.Points > (localMax?.Points ?? 0))
-                        localMax = result;
-                }
-                return localMax;
-            },
-            localMax =>
-            {
-                semaphore.Wait();
-                if (localMax?.Points > (max?.Points ?? 0))
-                    max = localMax;
-                semaphore.Release();
-            });
-        return max;
+                    yield return (x, y, word);
+        }
     }
 
     public SearchResultWithSwaps? FindBestWordWithSwaps(WordList words, int swaps) => swaps <= 1
