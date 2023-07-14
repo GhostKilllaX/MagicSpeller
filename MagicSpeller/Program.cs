@@ -2,15 +2,16 @@
 using Emgu.CV.CvEnum;
 using Emgu.CV.Structure;
 using MagicSpeller;
-using System.Diagnostics;
+using Spectre.Console;
 using System.Drawing;
 using System.Text.RegularExpressions;
+using Color=Spectre.Console.Color;
 
 var imageProcessor = new ImageProcessor();
 var words = new WordList("./words.txt");
 
-Console.WriteLine("MagicSpeller");
-Console.WriteLine("Press [ENTER] to analyize the current screen!");
+AnsiConsole.Write(new FigletText("MagicSpeller").Color(Color.MediumOrchid));
+AnsiConsole.MarkupLine("Press [yellow3_1][[ENTER]][/] to analyize the current screen!");
 Console.WriteLine("Or input the field by hand from left to right, from top to bottom with , seperating rows!");
 Console.WriteLine("eg. A      B(2X)  C");
 Console.WriteLine("    D      E      F");
@@ -76,25 +77,100 @@ while (true)
         game = imageProcessor.LoadPlayingField(playArea);
     }
 
-    var watch = new Stopwatch();
-    watch.Start();
 
-    Console.WriteLine("Parsed Field:");
-    for (var y = 0; y < game.Fields.GetLength(0); y++)
+    var noSwap = CreateTable().Title("No Swaps", new(Color.Yellow));
+    var oneSwap = CreateTable().Title("One Swap", new(Color.Yellow));
+    var twoSwap = CreateTable().Title("Two Swaps", new(Color.Yellow));
+    var all = new Columns(noSwap, oneSwap, twoSwap).Collapse();
+
+    AnsiConsole.Live(all)
+        .Start(ctx =>
+        {
+            ctx.Refresh();
+            var bestNoSwap = game.FindBestWord(words.WordTree);
+            var bestOneSwap = Task.Run(() => game.FindBestWordWithSwaps(words, 1));
+            var bestTwoSwap = bestOneSwap.ContinueWith(_ => game.FindBestWordWithSwaps(words, 2));
+
+            UpdateTable(noSwap, bestNoSwap);
+            UpdateTable(oneSwap, bestOneSwap.Result);
+            UpdateTable(twoSwap, bestTwoSwap.Result);
+            return;
+
+            void UpdateTable(Table table, SearchResult? result)
+            {
+                if (result is null)
+                {
+                    table.Caption("No word found!", new(Color.DarkOrange));
+                    return;
+                }
+
+                foreach (var delay in UpdateTableAnimationStep(table, result))
+                {
+                    if (args.Length > 0 && args[0] == "--anim")
+                    {
+                        ctx.Refresh();
+                        Thread.Sleep(delay);
+                    }
+                }
+                ctx.Refresh();
+            }
+        });
+
+    Console.WriteLine();
+    AnsiConsole.MarkupLine("Press [yellow3_1][[ENTER]][/] to analyize the current screen! Or input the field by hand!");
+    continue;
+
+
+    Table CreateTable()
     {
-        for (var x = 0; x < game.Fields.GetLength(1); x++)
-            Console.Write($"{game.Fields[y, x].Letter}{game.Fields[y, x].Special.ToDisplay()} ");
-        Console.WriteLine();
+        var table = new Table().HideHeaders();
+        for (var x = 0; x < game.Cols; x++)
+            table.AddColumn(new TableColumn("").Centered());
+        for (var y = 0; y < game.Rows; y++)
+            table.AddEmptyRow();
+
+        for (var y = 0; y < game.Rows; y++)
+        for (var x = 0; x < game.Cols; x++)
+        {
+            var letter = game.Fields[y, x].Letter;
+            table.UpdateCell(y, x, new Markup($"{letter}{game.Fields[y, x].Special.ToDisplay()}"));
+        }
+
+        table.Caption("Searching...", new(Color.Orange1));
+        return table;
     }
 
-    var bestMatch = game.FindBestWord(words.WordTree);
-    Console.WriteLine($"Best word: {bestMatch}");
-    bestMatch = game.FindBestWordWithSwaps(words, 1);
-    Console.WriteLine($"Best word 1 swap: {bestMatch}");
-    bestMatch = game.FindBestWordWithSwaps(words, 2);
-    Console.WriteLine($"Best word 2 swap: {bestMatch}");
-    Console.WriteLine($"Elapsed time: {watch.Elapsed:g}");
-    Console.WriteLine();
+    IEnumerable<int> UpdateTableAnimationStep(Table table, SearchResult result)
+    {
+        var baseColor = Color.DodgerBlue3;
+        var lerpToColor = Color.SpringGreen3;
+        var lettersFactor = 1f / (result.Fields.Count - 1);
 
-    Console.WriteLine("Press [ENTER] to analyize the current screen! Or input the field by hand!");
+        var word = string.Concat(result.Word.Select((letter, i) =>
+            $"[{baseColor.Lerp(lerpToColor, i * lettersFactor).ToMarkup()}]{letter}[/]"));
+        table.Caption($"{word} {result.Points}P", new(Color.Green3));
+
+        var index = 0;
+        foreach (var point in result.Path)
+        {
+            var letter = game.Fields[point.Y, point.X].Letter;
+            var prefix = $"[{baseColor.Lerp(lerpToColor, lettersFactor * index).ToMarkup()}]";
+            var suffix = "[/]";
+
+            if (result is SearchResultWithSwaps swaps)
+            {
+                var swap = swaps.Swaps.FirstOrDefault(item => item.Position == new Point(point.X, point.Y));
+                if (swap != default)
+                {
+                    prefix += $"[red]{swap.OldChar}[/] [underline]";
+                    suffix += "[/]";
+                    letter = swap.NewChar;
+                }
+            }
+
+            table.UpdateCell(point.Y, point.X, new Markup($"{prefix}{letter}{game.Fields[point.Y, point.X].Special.ToDisplay()}{suffix}"));
+            index++;
+            yield return 200;
+        }
+    }
 }
