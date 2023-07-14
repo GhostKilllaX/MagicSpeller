@@ -15,8 +15,10 @@ public readonly record struct Field(char Letter, SpecialField Special);
 
 public record PlayingField(Field[,] Fields)
 {
-    private readonly int _rows = Fields.GetLength(0);
-    private readonly int _cols = Fields.GetLength(1);
+
+    public int Rows { get; } = Fields.GetLength(0);
+
+    public int Cols { get; } = Fields.GetLength(1);
 
     private SearchResult? FindBestWordStep(WordTree words, SearchResult current)
     {
@@ -25,7 +27,7 @@ public record PlayingField(Field[,] Fields)
         for (var xOffset = -1; xOffset <= 1; xOffset++)
         {
             var newPos = current.Path[^1] + new Size(xOffset, yOffset);
-            if (newPos.Y < 0 || newPos.Y >= _rows || newPos.X < 0 || newPos.X >= _cols)
+            if (newPos.Y < 0 || newPos.Y >= Rows || newPos.X < 0 || newPos.X >= Cols)
                 continue;
             if (current.Path.Contains(newPos))
                 continue;
@@ -44,8 +46,8 @@ public record PlayingField(Field[,] Fields)
     public SearchResult? FindBestWord(WordTree words)
     {
         SearchResult? max = null;
-        for (var y = 0; y < _rows; y++)
-        for (var x = 0; x < _cols; x++)
+        for (var y = 0; y < Rows; y++)
+        for (var x = 0; x < Cols; x++)
         {
             var newField = Fields[y, x];
             var result = FindBestWordStep(words, new(new() { newField }, new() { new(x, y) }));
@@ -82,8 +84,8 @@ public record PlayingField(Field[,] Fields)
 
         IEnumerable<(int x, int y, char letter)> GetCombinations()
         {
-            for (var y = 0; y < _rows; y++)
-            for (var x = 0; x < _cols; x++)
+            for (var y = 0; y < Rows; y++)
+            for (var x = 0; x < Cols; x++)
             for (var letter = 'A'; letter <= 'Z'; letter++)
                 yield return (x, y, letter);
         }
@@ -103,7 +105,7 @@ public record PlayingField(Field[,] Fields)
         for (var xOffset = -1; xOffset <= 1; xOffset++)
         {
             var newPos = current.Path[^1] + new Size(xOffset, yOffset);
-            if (newPos.Y < 0 || newPos.Y >= _rows || newPos.X < 0 || newPos.X >= _cols)
+            if (newPos.Y < 0 || newPos.Y >= Rows || newPos.X < 0 || newPos.X >= Cols)
                 continue;
             if (current.Path.Contains(newPos))
                 continue;
@@ -152,8 +154,8 @@ public record PlayingField(Field[,] Fields)
         IEnumerable<(int x, int y, string word)> GetCombinations()
         {
             foreach (var word in words)
-                for (var y = 0; y < _rows; y++)
-                for (var x = 0; x < _cols; x++)
+                for (var y = 0; y < Rows; y++)
+                for (var x = 0; x < Cols; x++)
                     yield return (x, y, word);
         }
     }
