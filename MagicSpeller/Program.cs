@@ -11,7 +11,8 @@ var imageProcessor = new ImageProcessor();
 var words = new WordList("./words.txt");
 
 AnsiConsole.Write(new FigletText("MagicSpeller").Color(Color.MediumOrchid));
-AnsiConsole.MarkupLine("Press [yellow3_1][[ENTER]][/] to analyize the current screen!");
+AnsiConsole.MarkupLine("[gray]by Ingo[/]");
+AnsiConsole.MarkupLine("Press [yellow3_1][[ENTER]][/] to analyze the current screen!");
 Console.WriteLine("Or input the field by hand from left to right, from top to bottom with , seperating rows!");
 Console.WriteLine("eg. A      B(2X)  C");
 Console.WriteLine("    D      E      F");
@@ -67,6 +68,8 @@ while (true)
     }
     else
     {
+        AnsiConsole.Cursor.MoveUp(1);
+        Console.WriteLine("Analyzing current screen!");
         CvInvoke.UseOpenCL = false;
         using var screen = ScreenShooter.CaptureScreen();
         using var bitmap = new Bitmap(screen);
@@ -117,7 +120,7 @@ while (true)
         });
 
     Console.WriteLine();
-    AnsiConsole.MarkupLine("Press [yellow3_1][[ENTER]][/] to analyize the current screen! Or input the field by hand!");
+    AnsiConsole.MarkupLine("Press [yellow3_1][[ENTER]][/] to analyze the current screen! Or input the field by hand!");
     continue;
 
 
