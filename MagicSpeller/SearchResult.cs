@@ -2,12 +2,13 @@ using System.Drawing;
 
 namespace MagicSpeller;
 
+public readonly record struct FieldPositionTuple(Field Field, Point Position);
+
 public record SearchResult
 {
-    public SearchResult(List<Field> Fields, List<Point> Path)
+    public SearchResult(IReadOnlyList<FieldPositionTuple> Fields)
     {
         this.Fields = Fields;
-        this.Path = Path;
         Points = CalculatePoints();
     }
 
@@ -23,7 +24,7 @@ public record SearchResult
     {
         var points = 0;
         var wordFactor = 1;
-        foreach (var field in Fields)
+        foreach (var (field, _) in Fields)
         {
             var fieldFactor = field.Special switch
             {
@@ -43,20 +44,19 @@ public record SearchResult
         return points * wordFactor + lenghtBonus;
     }
 
-    public string Word => string.Concat(Fields.Select(field => field.Letter));
+    public string Word => string.Concat(Fields.Select(tuple => tuple.Field.Letter));
 
     public int Points { get; }
 
-    public List<Field> Fields { get; }
+    public IReadOnlyList<FieldPositionTuple> Fields { get; }
 
-    public List<Point> Path { get; }
-
-    public override string ToString() => $"{Word} {Points}P {string.Join(", ", Path.Select(point => new Point(point.X + 1, point.Y + 1)))}";
+    public override string ToString() =>
+        $"{Word} {Points}P {string.Join(", ", Fields.Select(field => new Point(field.Position.X + 1, field.Position.Y + 1)))}";
 }
 
 public readonly record struct SwapInfo(Point Position, char OldChar, char NewChar);
 
-public record SearchResultWithSwaps(List<Field> Fields, List<Point> Path, List<SwapInfo> Swaps) : SearchResult(Fields, Path)
+public record SearchResultWithSwaps(IReadOnlyList<FieldPositionTuple> Fields, IReadOnlyList<SwapInfo> Swaps) : SearchResult(Fields)
 {
     public override string ToString() => $"{base.ToString()} Swaps: {
         string.Join(", ", Swaps.Select(swap => (new Point(swap.Position.X + 1, swap.Position.Y + 1), swap.OldChar, swap.NewChar)))}";

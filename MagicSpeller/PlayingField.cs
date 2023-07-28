@@ -15,10 +15,17 @@ public readonly record struct Field(char Letter, SpecialField Special);
 
 public record PlayingField(Field[,] Fields)
 {
-
     public int Rows { get; } = Fields.GetLength(0);
 
     public int Cols { get; } = Fields.GetLength(1);
+
+    private static bool ContainsPosition(Span<FieldPositionTuple> array, int lenght, Point position)
+    {
+        for (var index = lenght - 1; index >= 0; index--)
+            if (array[index].Position == position)
+                return true;
+        return false;
+    }
 
     private SearchResult? FindBestWordStep(WordTree words, SearchResult current)
     {
@@ -26,14 +33,14 @@ public record PlayingField(Field[,] Fields)
         for (var yOffset = -1; yOffset <= 1; yOffset++)
         for (var xOffset = -1; xOffset <= 1; xOffset++)
         {
-            var newPos = current.Path[^1] + new Size(xOffset, yOffset);
+            var newPos = current.Fields[^1].Position + new Size(xOffset, yOffset);
             if (newPos.Y < 0 || newPos.Y >= Rows || newPos.X < 0 || newPos.X >= Cols)
                 continue;
-            if (current.Path.Contains(newPos))
+            if (ContainsPosition((FieldPositionTuple[])current.Fields, current.Fields.Count, newPos))
                 continue;
 
-            var newField = Fields[newPos.Y, newPos.X];
-            var searchResult = new SearchResult(new(current.Fields) { newField }, new(current.Path) { newPos });
+            var newField = new FieldPositionTuple(Fields[newPos.Y, newPos.X], newPos);
+            var searchResult = new SearchResult(current.Fields.Append(newField).ToArray());
             if (!words.CheckBeginning(searchResult.Word))
                 continue;
             var recursiveSearchResult = FindBestWordStep(words, searchResult);
@@ -49,8 +56,8 @@ public record PlayingField(Field[,] Fields)
         for (var y = 0; y < Rows; y++)
         for (var x = 0; x < Cols; x++)
         {
-            var newField = Fields[y, x];
-            var result = FindBestWordStep(words, new(new() { newField }, new() { new(x, y) }));
+            var newField = new FieldPositionTuple(Fields[y, x], new(x, y));
+            var result = FindBestWordStep(words, new(new[] { newField }));
             if (result?.Points > (max?.Points ?? 0))
                 max = result;
         }
@@ -62,10 +69,10 @@ public record PlayingField(Field[,] Fields)
         if (swaps == 0)
         {
             var result = FindBestWord(words);
-            return result is null ? null : new(result.Fields, result.Path, new());
+            return result is null ? null : new(result.Fields, Array.Empty<SwapInfo>());
         }
 
-        return GetCombinations()
+        return GetStartCombinations()
             .AsParallel()
             .Select(tuple =>
             {
@@ -78,11 +85,11 @@ public record PlayingField(Field[,] Fields)
                     return null;
                 if (letter == Fields[y, x].Letter)
                     return result;
-                return result with { Swaps = new(result.Swaps) { new(new(x, y), Fields[y, x].Letter, letter) } };
+                return result with { Swaps = result.Swaps.Append(new(new(x, y), Fields[y, x].Letter, letter)).ToArray() };
             })
             .MaxBy(s => s?.Points);
 
-        IEnumerable<(int x, int y, char letter)> GetCombinations()
+        IEnumerable<(int x, int y, char letter)> GetStartCombinations()
         {
             for (var y = 0; y < Rows; y++)
             for (var x = 0; x < Cols; x++)
@@ -91,67 +98,90 @@ public record PlayingField(Field[,] Fields)
         }
     }
 
-    private SearchResultWithSwaps? FindWordStep(string word, int swaps, SearchResultWithSwaps current)
+    private ref struct InternalStepBuffer(Span<FieldPositionTuple> fields, int fieldsWriteIndex, Span<SwapInfo> swaps, int swapsWriteIndex)
     {
-        if (word.Length == current.Fields.Count && word == current.Word)
-            return current;
+        public Span<FieldPositionTuple> Fields { get; } = fields;
+
+        public int FieldsWriteIndex { get; set; } = fieldsWriteIndex;
+
+        public Span<SwapInfo> Swaps { get; } = swaps;
+
+        public int SwapsWriteIndex { get; set; } = swapsWriteIndex;
+
+        public SearchResultWithSwaps ToSearchResult() => new(Fields[..FieldsWriteIndex].ToArray(), Swaps[..SwapsWriteIndex].ToArray());
+    }
+
+    private SearchResultWithSwaps? FindWordStep(string word, int swaps, ref InternalStepBuffer current)
+    {
+        if (current.FieldsWriteIndex == word.Length)
+        {
+            var result = current.ToSearchResult();
+            if (word == result.Word)
+                return result;
+        }
+        if (current.FieldsWriteIndex >= word.Length)
+            return null;
 
         SearchResultWithSwaps? max = null;
-        if (current.Fields.Count >= word.Length)
-            return max;
-
-        var seachFor = word[current.Fields.Count];
+        var seachFor = word[current.FieldsWriteIndex];
+        current.FieldsWriteIndex++;
+        var swapsBefore = current.SwapsWriteIndex;
         for (var yOffset = -1; yOffset <= 1; yOffset++)
         for (var xOffset = -1; xOffset <= 1; xOffset++)
         {
-            var newPos = current.Path[^1] + new Size(xOffset, yOffset);
+            var newPos = current.Fields[current.FieldsWriteIndex - 2].Position + new Size(xOffset, yOffset);
             if (newPos.Y < 0 || newPos.Y >= Rows || newPos.X < 0 || newPos.X >= Cols)
-                continue;
-            if (current.Path.Contains(newPos))
                 continue;
             if (Fields[newPos.Y, newPos.X].Letter != seachFor && swaps == 0)
                 continue;
+            if (ContainsPosition(current.Fields, current.FieldsWriteIndex - 1, newPos))
+                continue;
 
             var newSwaps = swaps;
-            var newField = Fields[newPos.Y, newPos.X] with { Letter = seachFor };
-            var newSwapList = current.Swaps;
+            var newField = new FieldPositionTuple(Fields[newPos.Y, newPos.X] with { Letter = seachFor }, newPos);
             if (Fields[newPos.Y, newPos.X].Letter != seachFor)
             {
-                newSwapList = new(current.Swaps) { new(new(newPos.X, newPos.Y), Fields[newPos.Y, newPos.X].Letter, seachFor) };
+                current.Swaps[current.SwapsWriteIndex++] = new(new(newPos.X, newPos.Y), Fields[newPos.Y, newPos.X].Letter, seachFor);
                 newSwaps--;
             }
 
-            var next = new SearchResultWithSwaps(new(current.Fields) { newField }, new(current.Path) { new(newPos.X, newPos.Y) }, newSwapList);
-            var result = FindWordStep(word, newSwaps, next);
+            current.Fields[current.FieldsWriteIndex - 1] = newField;
+            var result = FindWordStep(word, newSwaps, ref current);
             if (result?.Points > (max?.Points ?? 0))
                 max = result;
+            current.SwapsWriteIndex = swapsBefore;
         }
+        current.FieldsWriteIndex--;
         return max;
     }
 
-    private SearchResultWithSwaps? FindBestWordListApproach(IEnumerable<string> words, int swaps)
+    private SearchResultWithSwaps? FindBestWordListApproach(IEnumerable<string> words, int maxSwaps)
     {
-        return GetCombinations()
+        return GetStartCombinations()
             .AsParallel()
             .Select(tuple =>
             {
                 var (x, y, word) = tuple;
-                var newSwaps = swaps;
-                var newField = Fields[y, x] with { Letter = word[0] };
-                var newSwapList = new List<SwapInfo>();
+
+                Span<FieldPositionTuple> fields = stackalloc FieldPositionTuple[word.Length];
+                fields[0] = new(Fields[y, x] with { Letter = word[0] }, new(x, y));
+                Span<SwapInfo> swaps = stackalloc SwapInfo[maxSwaps];
+                var newSwapsCount = maxSwaps;
+
                 if (Fields[y, x].Letter != word[0])
                 {
-                    if (swaps == 0)
+                    if (maxSwaps == 0)
                         return null;
-                    newSwapList.Add(new(new(x, y), Fields[y, x].Letter, word[0]));
-                    newSwaps--;
+
+                    swaps[0] = new(new(x, y), Fields[y, x].Letter, word[0]);
+                    newSwapsCount--;
                 }
-                var current = new SearchResultWithSwaps(new() { newField }, new() { new(x, y) }, newSwapList);
-                return FindWordStep(word, newSwaps, current);
+                var current = new InternalStepBuffer(fields, 1, swaps, maxSwaps - newSwapsCount);
+                return FindWordStep(word, newSwapsCount, ref current);
             })
             .MaxBy(s => s?.Points);
 
-        IEnumerable<(int x, int y, string word)> GetCombinations()
+        IEnumerable<(int x, int y, string word)> GetStartCombinations()
         {
             foreach (var word in words)
                 for (var y = 0; y < Rows; y++)

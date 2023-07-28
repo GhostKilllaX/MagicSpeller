@@ -3,6 +3,7 @@ using Emgu.CV.CvEnum;
 using Emgu.CV.Structure;
 using MagicSpeller;
 using Spectre.Console;
+using System.Diagnostics;
 using System.Drawing;
 using System.Text.RegularExpressions;
 using Color=Spectre.Console.Color;
@@ -80,7 +81,8 @@ while (true)
         game = imageProcessor.LoadPlayingField(playArea);
     }
 
-
+    var watch = new Stopwatch();
+    watch.Start();
     var noSwap = CreateTable().Title("No Swaps", new(Color.Yellow));
     var oneSwap = CreateTable().Title("One Swap", new(Color.Yellow));
     var twoSwap = CreateTable().Title("Two Swaps", new(Color.Yellow));
@@ -104,6 +106,7 @@ while (true)
                 if (result is null)
                 {
                     table.Caption("No word found!", new(Color.DarkOrange));
+                    ctx.Refresh();
                     return;
                 }
 
@@ -119,6 +122,7 @@ while (true)
             }
         });
 
+    AnsiConsole.MarkupLine($"[gray]Search took {watch.Elapsed:g}[/]");
     Console.WriteLine();
     AnsiConsole.MarkupLine("Press [yellow3_1][[ENTER]][/] to analyze the current screen! Or input the field by hand!");
     continue;
@@ -154,9 +158,8 @@ while (true)
         table.Caption($"{word} {result.Points}P", new(Color.Green3));
 
         var index = 0;
-        foreach (var point in result.Path)
+        foreach (var ((letter, special), point) in result.Fields)
         {
-            var letter = game.Fields[point.Y, point.X].Letter;
             var prefix = $"[{baseColor.Lerp(lerpToColor, lettersFactor * index).ToMarkup()}]";
             var suffix = "[/]";
 
@@ -167,11 +170,10 @@ while (true)
                 {
                     prefix += $"[red]{swap.OldChar}[/] [underline]";
                     suffix += "[/]";
-                    letter = swap.NewChar;
                 }
             }
 
-            table.UpdateCell(point.Y, point.X, new Markup($"{prefix}{letter}{game.Fields[point.Y, point.X].Special.ToDisplay()}{suffix}"));
+            table.UpdateCell(point.Y, point.X, new Markup($"{prefix}{letter}{special.ToDisplay()}{suffix}"));
             index++;
             yield return 200;
         }
