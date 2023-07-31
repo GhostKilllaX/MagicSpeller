@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 using Color=Spectre.Console.Color;
 
 var imageProcessor = new ImageProcessor();
-var words = new WordList("./words.txt");
+var words = new WordTrie("./words.txt");
 
 AnsiConsole.Write(new FigletText("MagicSpeller").Color(Color.MediumOrchid));
 AnsiConsole.MarkupLine("[gray]by Ingo[/]");
@@ -92,11 +92,11 @@ while (true)
         .Start(ctx =>
         {
             ctx.Refresh();
-            var bestNoSwap = game.FindBestWord(words.WordTree);
-            var bestOneSwap = Task.Run(() => game.FindBestWordWithSwaps(words, 1));
-            var bestTwoSwap = bestOneSwap.ContinueWith(_ => game.FindBestWordWithSwaps(words, 2));
+            var bestNoSwap = Task.Run(() => game.FindBestWord(words));
+            var bestOneSwap = bestNoSwap.ContinueWith(_ => game.FindBestWord(words, 1));
+            var bestTwoSwap = bestOneSwap.ContinueWith(_ => game.FindBestWord(words, 2));
 
-            UpdateTable(noSwap, bestNoSwap);
+            UpdateTable(noSwap, bestNoSwap.Result);
             UpdateTable(oneSwap, bestOneSwap.Result);
             UpdateTable(twoSwap, bestTwoSwap.Result);
             return;
@@ -163,14 +163,11 @@ while (true)
             var prefix = $"[{baseColor.Lerp(lerpToColor, lettersFactor * index).ToMarkup()}]";
             var suffix = "[/]";
 
-            if (result is SearchResultWithSwaps swaps)
+            var swap = result.Swaps.FirstOrDefault(item => item.Position == new Point(point.X, point.Y));
+            if (swap != default)
             {
-                var swap = swaps.Swaps.FirstOrDefault(item => item.Position == new Point(point.X, point.Y));
-                if (swap != default)
-                {
-                    prefix += $"[red]{swap.OldChar}[/] [underline]";
-                    suffix += "[/]";
-                }
+                prefix += $"[red]{swap.OldChar}[/] [underline]";
+                suffix += "[/]";
             }
 
             table.UpdateCell(point.Y, point.X, new Markup($"{prefix}{letter}{special.ToDisplay()}{suffix}"));

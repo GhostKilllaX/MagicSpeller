@@ -4,13 +4,24 @@ namespace MagicSpeller;
 
 public readonly record struct FieldPositionTuple(Field Field, Point Position);
 
+public readonly record struct SwapInfo(Point Position, char OldChar, char NewChar);
+
 public record SearchResult
 {
-    public SearchResult(IReadOnlyList<FieldPositionTuple> Fields)
+    public SearchResult(IReadOnlyList<FieldPositionTuple> Fields, IReadOnlyList<SwapInfo> Swaps)
     {
         this.Fields = Fields;
+        this.Swaps = Swaps;
         Points = CalculatePoints();
     }
+
+    public string Word => string.Concat(Fields.Select(tuple => tuple.Field.Letter));
+
+    public int Points { get; }
+
+    public IReadOnlyList<FieldPositionTuple> Fields { get; }
+
+    public IReadOnlyList<SwapInfo> Swaps { get; }
 
     private static int GetCharPoints(char c) =>
         c switch
@@ -44,20 +55,7 @@ public record SearchResult
         return points * wordFactor + lenghtBonus;
     }
 
-    public string Word => string.Concat(Fields.Select(tuple => tuple.Field.Letter));
-
-    public int Points { get; }
-
-    public IReadOnlyList<FieldPositionTuple> Fields { get; }
-
-    public override string ToString() =>
-        $"{Word} {Points}P {string.Join(", ", Fields.Select(field => new Point(field.Position.X + 1, field.Position.Y + 1)))}";
-}
-
-public readonly record struct SwapInfo(Point Position, char OldChar, char NewChar);
-
-public record SearchResultWithSwaps(IReadOnlyList<FieldPositionTuple> Fields, IReadOnlyList<SwapInfo> Swaps) : SearchResult(Fields)
-{
-    public override string ToString() => $"{base.ToString()} Swaps: {
-        string.Join(", ", Swaps.Select(swap => (new Point(swap.Position.X + 1, swap.Position.Y + 1), swap.OldChar, swap.NewChar)))}";
+    public override string ToString() => $"{Word} {Points}P {
+        string.Join(", ", Fields.Select(field => new Point(field.Position.X + 1, field.Position.Y + 1)))} Swaps: {
+            string.Join(", ", Swaps.Select(swap => (new Point(swap.Position.X + 1, swap.Position.Y + 1), swap.OldChar, swap.NewChar)))}";
 }
