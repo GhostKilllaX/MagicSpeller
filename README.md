@@ -11,6 +11,7 @@ latest pre compiled program or build the project yourself.
 
 * **Fast**. Multithreading and C#.
 * **Easy to use**. Uses image processing algorithms to process the game board from your current screen.
+* **Different output formats.** You can select between simple, with a table (like in the example) and json output.
 
 ## How it works
 
@@ -23,7 +24,16 @@ latest pre compiled program or build the project yourself.
 
 ## Example
 
-![Example](example.gif)
+![Example](/images/example.gif)
+
+## CLI
+
+Via the command line interface different options can be set.
+
+![img.png](/images/help.png)
+
+For example, if you want to call this solver from another process, you could call it like
+"MagicSpeller.exe --input Screenshot --format Json --output File result.json" and process the json file further.
 
 ## License
 
