@@ -9,12 +9,16 @@ namespace MagicSpeller;
 
 public class ImageProcessor
 {
-    private readonly Tesseract _ocr =
-        new("./tessdata", "eng", OcrEngineMode.Default, "23ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    private readonly Tesseract _ocr;
 
-    public ImageProcessor() => _ocr.SetVariable("debug_file", "NUL");
-
-    ~ImageProcessor() => _ocr.Dispose();
+    public ImageProcessor()
+    {
+        _ = CvInvoke.BuildInformation; // Crash if not present
+        _ocr = new();
+        _ocr.SetVariable("debug_file", "NUL");
+        _ocr.Init("./tessdata", "eng", OcrEngineMode.Default);
+        _ocr.SetVariable("tessedit_char_whitelist", "23ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+    }
 
     private char? RecognizeChar(UMat image)
     {

@@ -55,7 +55,8 @@ public record SearchResult
         return points * wordFactor + lenghtBonus;
     }
 
-    public override string ToString() => $"{Word} {Points}P {
-        string.Join(", ", Fields.Select(field => new Point(field.Position.X + 1, field.Position.Y + 1)))} Swaps: {
-            string.Join(", ", Swaps.Select(swap => (new Point(swap.Position.X + 1, swap.Position.Y + 1), swap.OldChar, swap.NewChar)))}";
+    public override string ToString() =>
+        $"{Word} {Points}P {string.Join(", ", Fields.Select(field => new Point(field.Position.X + 1, field.Position.Y + 1)))}{(Swaps.Count > 0
+            ? $" Swaps: {string.Join(", ", Swaps.Select(swap => (new Point(swap.Position.X + 1, swap.Position.Y + 1), swap.OldChar, swap.NewChar)))}"
+            : "")}";
 }
